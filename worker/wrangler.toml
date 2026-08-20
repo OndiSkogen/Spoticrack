@@ -3,10 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Comma-separated allowlist of origins permitted to call this API.
-# Add the deployed pages.dev origin once the frontend is live.
-[vars]
-ALLOWED_ORIGINS = "http://localhost:5173"
+# Serves the built frontend (npm run build -w frontend) from the same
+# Worker as the API - one origin, one deploy, no CORS needed.
+[assets]
+directory = "../frontend/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"

@@ -14,6 +14,7 @@
     "test": "npm run test -w worker && npm run test -w frontend",
     "test:worker": "npm run test -w worker",
     "test:frontend": "npm run test -w frontend",
-    "build": "npm run build -w frontend"
+    "build": "npm run build -w frontend",
+    "deploy": "npm run build -w frontend && npm run deploy -w worker"
   }
 }
