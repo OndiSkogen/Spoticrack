@@ -1,0 +1,19 @@
+{
+  "name": "spoticrack",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "frontend",
+    "worker"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:worker": "npm run dev -w worker",
+    "test": "npm run test -w worker && npm run test -w frontend",
+    "test:worker": "npm run test -w worker",
+    "test:frontend": "npm run test -w frontend",
+    "build": "npm run build -w frontend"
+  }
+}

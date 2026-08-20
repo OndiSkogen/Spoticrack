@@ -1,0 +1,11 @@
+name = "spoticrack-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Local dev / test placeholder. After running `wrangler d1 create spoticrack-db`,
+# replace database_id below with the real id Cloudflare gives you.
+[[d1_databases]]
+binding = "DB"
+database_name = "spoticrack-db"
+database_id = "local-dev-placeholder"
