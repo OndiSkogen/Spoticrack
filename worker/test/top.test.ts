@@ -87,7 +87,10 @@ describe("GET /api/top", () => {
             id: "track1",
             name: "Song One",
             artists: [{ name: "Artist A" }, { name: "Artist B" }],
-            album: { images: [{ url: "https://img/large.jpg" }] },
+            album: {
+              images: [{ url: "https://img/large.jpg" }],
+              release_date: "2004-10-05",
+            },
           },
         ],
       },
@@ -111,12 +114,13 @@ describe("GET /api/top", () => {
           name: "Song One",
           artists: "Artist A, Artist B",
           albumImage: "https://img/large.jpg",
+          releaseYear: 2004,
         },
       ],
     });
   });
 
-  it("returns trimmed artist items (including genres) for type=artists", async () => {
+  it("returns trimmed artist items for type=artists", async () => {
     const sessionCookie = await sessionCookieFor("top-artists-account", "seed-refresh-token");
 
     mockTopFetch({
@@ -125,7 +129,6 @@ describe("GET /api/top", () => {
           {
             id: "artist1",
             name: "Band X",
-            genres: ["indie rock", "shoegaze"],
             images: [{ url: "https://img/artist.jpg" }],
           },
         ],
@@ -148,7 +151,6 @@ describe("GET /api/top", () => {
         {
           id: "artist1",
           name: "Band X",
-          genres: ["indie rock", "shoegaze"],
           image: "https://img/artist.jpg",
         },
       ],

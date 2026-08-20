@@ -25,13 +25,12 @@ type SpotifyTrack = {
   id: string;
   name: string;
   artists: { name: string }[];
-  album: { images: { url: string }[] };
+  album: { images: { url: string }[]; release_date: string };
 };
 
 type SpotifyArtist = {
   id: string;
   name: string;
-  genres: string[];
   images: { url: string }[];
 };
 
@@ -252,6 +251,7 @@ app.get("/api/top", async (c) => {
         name: t.name,
         artists: t.artists.map((a) => a.name).join(", "),
         albumImage: t.album.images[0]?.url ?? null,
+        releaseYear: Number(t.album.release_date.slice(0, 4)),
       })),
     });
   }
@@ -261,7 +261,6 @@ app.get("/api/top", async (c) => {
     items: data.items.map((a) => ({
       id: a.id,
       name: a.name,
-      genres: a.genres,
       image: a.images[0]?.url ?? null,
     })),
   });
