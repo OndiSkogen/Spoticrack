@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Client ID is not confidential for a PKCE flow - safe to commit.
+[vars]
+SPOTIFY_CLIENT_ID = "01e680ea7fe444eea50b19df0811551b"
+
 # Serves the built frontend (npm run build -w frontend) from the same
 # Worker as the API - one origin, one deploy, no CORS needed.
 [assets]

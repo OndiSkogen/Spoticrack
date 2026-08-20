@@ -1,3 +1,4 @@
+import { AuthStatus } from "./AuthStatus";
 import { HealthStatus } from "./HealthStatus";
 
 export function App() {
@@ -5,6 +6,7 @@ export function App() {
     <main>
       <h1>Spoticrack</h1>
       <HealthStatus />
+      <AuthStatus />
     </main>
   );
 }
