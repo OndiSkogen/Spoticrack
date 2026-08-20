@@ -3,6 +3,7 @@ import { DecadeBreakdown } from "./DecadeBreakdown";
 import { HealthStatus } from "./HealthStatus";
 import { TopItems } from "./TopItems";
 import { TrackingControl } from "./TrackingControl";
+import { TrendChart } from "./TrendChart";
 
 export function App() {
   return (
@@ -13,6 +14,7 @@ export function App() {
       <TrackingControl />
       <TopItems />
       <DecadeBreakdown />
+      <TrendChart />
     </main>
   );
 }

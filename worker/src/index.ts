@@ -389,6 +389,64 @@ app.get("/api/history", async (c) => {
   return c.json({ capturedAt: snapshot.captured_at, items });
 });
 
+const TREND_SNAPSHOT_LIMIT = 14;
+
+app.get("/api/trend", async (c) => {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const type = c.req.query("type");
+  if (type !== "tracks" && type !== "artists") {
+    return c.json({ error: "type must be 'tracks' or 'artists'." }, 400);
+  }
+
+  const timeRange = c.req.query("time_range") ?? "medium_term";
+  if (!TOP_TIME_RANGES.includes(timeRange as (typeof TOP_TIME_RANGES)[number])) {
+    return c.json(
+      { error: `time_range must be one of: ${TOP_TIME_RANGES.join(", ")}.` },
+      400,
+    );
+  }
+
+  const itemType = type === "tracks" ? "track" : "artist";
+
+  const snapshots = await c.env.DB.prepare(
+    "SELECT id, captured_at FROM snapshots WHERE user_id = ? AND time_range = ? ORDER BY captured_at DESC LIMIT ?",
+  )
+    .bind(accountId, timeRange, TREND_SNAPSHOT_LIMIT)
+    .all<{ id: number; captured_at: string }>();
+
+  if (snapshots.results.length === 0) {
+    return c.json({ snapshots: [] });
+  }
+
+  const snapshotIds = snapshots.results.map((s) => s.id);
+  const placeholders = snapshotIds.map(() => "?").join(",");
+  const items = await c.env.DB.prepare(
+    `SELECT snapshot_id, rank, spotify_id FROM snapshot_items
+     WHERE snapshot_id IN (${placeholders}) AND item_type = ?
+     ORDER BY rank`,
+  )
+    .bind(...snapshotIds, itemType)
+    .all<{ snapshot_id: number; rank: number; spotify_id: string }>();
+
+  const itemsBySnapshot = new Map<number, { id: string; rank: number }[]>();
+  for (const row of items.results) {
+    const list = itemsBySnapshot.get(row.snapshot_id) ?? [];
+    list.push({ id: row.spotify_id, rank: row.rank });
+    itemsBySnapshot.set(row.snapshot_id, list);
+  }
+
+  const result = [...snapshots.results].reverse().map((s) => ({
+    capturedAt: s.captured_at,
+    items: itemsBySnapshot.get(s.id) ?? [],
+  }));
+
+  return c.json({ snapshots: result });
+});
+
 app.post("/api/auth/logout", async (c) => {
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
   return c.json({ ok: true });
