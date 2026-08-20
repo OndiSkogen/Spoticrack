@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TopItems } from "./TopItems";
 
 function jsonResponse(body: unknown, status = 200) {
-  return { ok: status < 400, status, json: async () => body };
+  return { ok: status < 400, status, statusText: "", json: async () => body };
 }
 
 describe("TopItems", () => {
@@ -31,7 +31,7 @@ describe("TopItems", () => {
       .mockResolvedValueOnce(jsonResponse({ items: [] }))
       .mockResolvedValueOnce(
         jsonResponse({
-          items: [{ id: "a1", name: "Band X", genres: ["indie"], image: null }],
+          items: [{ id: "a1", name: "Band X", image: null }],
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -60,10 +60,24 @@ describe("TopItems", () => {
   });
 
   it("renders nothing when not signed in", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ error: "Not signed in." }, 401)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "Not signed in." }, 401)),
+    );
 
     const { container } = render(<TopItems />);
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it("shows the server's error message when the request fails for a reason other than auth", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "Spotify rate limited us." }, 502)),
+    );
+
+    render(<TopItems />);
+
+    expect(await screen.findByText(/spotify rate limited us/i)).toBeInTheDocument();
   });
 });

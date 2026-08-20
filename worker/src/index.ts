@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { encrypt, importEncryptionKey } from "./crypto";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
@@ -148,25 +148,47 @@ app.get("/api/auth/callback", async (c) => {
     .bind(profile.account_id)
     .first();
 
+  let unusedInviteId: number | null = null;
+
   if (!isFirstEverUser && !existing) {
-    return c.json(
-      { error: "This Spotify account hasn't been invited to Spoticrack." },
-      403,
-    );
+    const invite = await c.env.DB.prepare(
+      "SELECT id FROM invites WHERE used_by IS NULL ORDER BY created_at ASC LIMIT 1",
+    ).first<{ id: number }>();
+
+    if (!invite) {
+      return c.json(
+        { error: "This Spotify account hasn't been invited to Spoticrack." },
+        403,
+      );
+    }
+    unusedInviteId = invite.id;
   }
 
   const encryptionKey = await importEncryptionKey(c.env.REFRESH_TOKEN_ENCRYPTION_KEY);
   const encryptedRefreshToken = await encrypt(tokens.refresh_token, encryptionKey);
 
   await c.env.DB.prepare(
-    `INSERT INTO users (spotify_account_id, display_name, refresh_token_enc)
-     VALUES (?, ?, ?)
+    `INSERT INTO users (spotify_account_id, display_name, refresh_token_enc, is_owner)
+     VALUES (?, ?, ?, ?)
      ON CONFLICT(spotify_account_id) DO UPDATE SET
        display_name = excluded.display_name,
        refresh_token_enc = excluded.refresh_token_enc`,
   )
-    .bind(profile.account_id, profile.display_name ?? "Spotify User", encryptedRefreshToken)
+    .bind(
+      profile.account_id,
+      profile.display_name ?? "Spotify User",
+      encryptedRefreshToken,
+      isFirstEverUser ? 1 : 0,
+    )
     .run();
+
+  if (unusedInviteId !== null) {
+    await c.env.DB.prepare(
+      "UPDATE invites SET used_by = ?, used_at = datetime('now') WHERE id = ?",
+    )
+      .bind(profile.account_id, unusedInviteId)
+      .run();
+  }
 
   await setSignedCookie(c, SESSION_COOKIE, profile.account_id, c.env.SESSION_SECRET, {
     httpOnly: true,
@@ -207,14 +229,15 @@ app.get("/api/me", async (c) => {
   const profile = await profileRes.json<SpotifyProfile>();
 
   const user = await c.env.DB.prepare(
-    "SELECT tracking_opt_in FROM users WHERE spotify_account_id = ?",
+    "SELECT tracking_opt_in, is_owner FROM users WHERE spotify_account_id = ?",
   )
     .bind(accountId)
-    .first<{ tracking_opt_in: number }>();
+    .first<{ tracking_opt_in: number; is_owner: number }>();
 
   return c.json({
     displayName: profile.display_name ?? "Spotify User",
     trackingOptIn: user?.tracking_opt_in === 1,
+    isOwner: user?.is_owner === 1,
   });
 });
 
@@ -231,6 +254,53 @@ app.post("/api/tracking", async (c) => {
     .run();
 
   return c.json({ trackingOptIn: optIn });
+});
+
+async function requireOwner(c: Context<{ Bindings: Env }>): Promise<string | Response> {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const user = await c.env.DB.prepare(
+    "SELECT is_owner FROM users WHERE spotify_account_id = ?",
+  )
+    .bind(accountId)
+    .first<{ is_owner: number }>();
+
+  if (user?.is_owner !== 1) {
+    return c.json({ error: "Only the app owner can manage invites." }, 403);
+  }
+
+  return accountId;
+}
+
+app.post("/api/invites", async (c) => {
+  const ownerOrError = await requireOwner(c);
+  if (ownerOrError instanceof Response) return ownerOrError;
+
+  await c.env.DB.prepare("INSERT INTO invites DEFAULT VALUES").run();
+
+  return c.json({ ok: true });
+});
+
+app.get("/api/invites", async (c) => {
+  const ownerOrError = await requireOwner(c);
+  if (ownerOrError instanceof Response) return ownerOrError;
+
+  const pending = await c.env.DB.prepare(
+    "SELECT count(*) AS n FROM invites WHERE used_by IS NULL",
+  ).first<{ n: number }>();
+
+  const used = await c.env.DB.prepare(
+    `SELECT users.display_name AS displayName
+     FROM invites
+     JOIN users ON users.spotify_account_id = invites.used_by
+     WHERE invites.used_by IS NOT NULL
+     ORDER BY invites.used_at ASC`,
+  ).all<{ displayName: string }>();
+
+  return c.json({ pending: pending?.n ?? 0, used: used.results });
 });
 
 app.post("/api/snapshot/run", async (c) => {

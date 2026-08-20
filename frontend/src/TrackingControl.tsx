@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { apiGet, apiPost } from "./api";
+
+type Me = { trackingOptIn: boolean };
 
 export function TrackingControl() {
   const [optIn, setOptIn] = useState<boolean | null>(null);
@@ -6,30 +9,32 @@ export function TrackingControl() {
   const [snapshotStatus, setSnapshotStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/me").then((res) => {
-      if (res.status === 401) {
+    apiGet<Me>("/api/me").then((result) => {
+      if (result.kind === "unauthenticated") {
         setSignedIn(false);
         return;
       }
       setSignedIn(true);
-      res.json().then((data: { trackingOptIn: boolean }) => setOptIn(data.trackingOptIn));
+      if (result.kind === "ok") setOptIn(result.data.trackingOptIn);
     });
   }, []);
 
   async function toggle() {
     const next = !optIn;
     setOptIn(next);
-    await fetch("/api/tracking", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ optIn: next }),
-    });
+    await apiPost("/api/tracking", { optIn: next });
   }
 
   async function captureNow() {
     setSnapshotStatus("Capturing…");
-    const res = await fetch("/api/snapshot/run", { method: "POST" });
-    setSnapshotStatus(res.ok ? "Snapshot captured." : "Failed to capture snapshot.");
+    const result = await apiPost("/api/snapshot/run");
+    if (result.kind === "ok") {
+      setSnapshotStatus("Snapshot captured.");
+    } else if (result.kind === "error") {
+      setSnapshotStatus(`Couldn't capture a snapshot: ${result.message}`);
+    } else {
+      setSnapshotStatus(null);
+    }
   }
 
   if (!signedIn || optIn === null) return null;

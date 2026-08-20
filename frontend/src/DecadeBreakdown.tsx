@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiGet } from "./api";
 import { aggregateDecades, type DecadeCount } from "./decades";
 
 type TrackItem = {
@@ -12,28 +13,34 @@ type TrackItem = {
 export function DecadeBreakdown() {
   const [decadeCounts, setDecadeCounts] = useState<DecadeCount[] | null>(null);
   const [signedIn, setSignedIn] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/top?type=tracks&time_range=medium_term").then((res) => {
-      if (cancelled) return;
-      if (res.status === 401) {
-        setSignedIn(false);
-        return;
-      }
-      setSignedIn(true);
-      res.json().then((data: { items: TrackItem[] }) => {
-        if (!cancelled) setDecadeCounts(aggregateDecades(data.items));
-      });
-    });
+    apiGet<{ items: TrackItem[] }>("/api/top?type=tracks&time_range=medium_term").then(
+      (result) => {
+        if (cancelled) return;
+        if (result.kind === "unauthenticated") {
+          setSignedIn(false);
+        } else if (result.kind === "error") {
+          setSignedIn(true);
+          setError(result.message);
+        } else {
+          setSignedIn(true);
+          setDecadeCounts(aggregateDecades(result.data.items));
+        }
+      },
+    );
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!signedIn || decadeCounts === null || decadeCounts.length === 0) return null;
+  if (!signedIn) return null;
+  if (error) return <p>Couldn't load your decade breakdown: {error}</p>;
+  if (decadeCounts === null || decadeCounts.length === 0) return null;
 
   const max = Math.max(...decadeCounts.map((dc) => dc.count));
 

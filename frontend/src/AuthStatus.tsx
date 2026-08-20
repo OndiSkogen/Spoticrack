@@ -1,34 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiGet, apiPost, SESSION_EXPIRED_EVENT } from "./api";
 
 type Me = { displayName: string };
 
 export function AuthStatus() {
   const [me, setMe] = useState<Me | null>(null);
   const [checked, setChecked] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const meRef = useRef<Me | null>(null);
 
   useEffect(() => {
     checkSession();
+
+    function onSessionExpired() {
+      if (meRef.current) setExpired(true);
+      meRef.current = null;
+      setMe(null);
+      setChecked(true);
+    }
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
-  function checkSession() {
-    fetch("/api/me")
-      .then((res) => (res.ok ? (res.json() as Promise<Me>) : null))
-      .then((data) => {
-        setMe(data);
-        setChecked(true);
-      })
-      .catch(() => setChecked(true));
+  async function checkSession() {
+    const result = await apiGet<Me>("/api/me");
+    const data = result.kind === "ok" ? result.data : null;
+    meRef.current = data;
+    setMe(data);
+    setChecked(true);
   }
 
   async function signOut() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await apiPost("/api/auth/logout");
+    meRef.current = null;
     setMe(null);
+    setExpired(false);
   }
 
   if (!checked) return null;
 
   if (!me) {
-    return <a href="/api/auth/login">Sign in with Spotify</a>;
+    return (
+      <div>
+        {expired && <p>Your session expired. Please sign in again.</p>}
+        <a href="/api/auth/login">Sign in with Spotify</a>
+      </div>
+    );
   }
 
   return (

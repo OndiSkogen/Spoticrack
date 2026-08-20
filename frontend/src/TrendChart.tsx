@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiGet } from "./api";
 import { buildTrendSeries, type TrendSnapshot } from "./trend";
 
 type TopItem = { id: string; name: string };
@@ -13,27 +14,34 @@ export function TrendChart() {
   const [signedIn, setSignedIn] = useState(true);
   const [topItems, setTopItems] = useState<TopItem[] | null>(null);
   const [snapshots, setSnapshots] = useState<TrendSnapshot[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     Promise.all([
-      fetch("/api/top?type=tracks&time_range=medium_term"),
-      fetch("/api/trend?type=tracks&time_range=medium_term"),
-    ]).then(([topRes, trendRes]) => {
+      apiGet<{ items: TopItem[] }>("/api/top?type=tracks&time_range=medium_term"),
+      apiGet<{ snapshots: TrendSnapshot[] }>("/api/trend?type=tracks&time_range=medium_term"),
+    ]).then(([topResult, trendResult]) => {
       if (cancelled) return;
-      if (topRes.status === 401 || trendRes.status === 401) {
+
+      if (topResult.kind === "unauthenticated" || trendResult.kind === "unauthenticated") {
         setSignedIn(false);
         return;
       }
       setSignedIn(true);
-      Promise.all([topRes.json(), trendRes.json()]).then(
-        ([topData, trendData]: [{ items: TopItem[] }, { snapshots: TrendSnapshot[] }]) => {
-          if (cancelled) return;
-          setTopItems(topData.items);
-          setSnapshots(trendData.snapshots);
-        },
-      );
+
+      if (topResult.kind === "error") {
+        setError(topResult.message);
+        return;
+      }
+      if (trendResult.kind === "error") {
+        setError(trendResult.message);
+        return;
+      }
+
+      setTopItems(topResult.data.items);
+      setSnapshots(trendResult.data.snapshots);
     });
 
     return () => {
@@ -41,7 +49,9 @@ export function TrendChart() {
     };
   }, []);
 
-  if (!signedIn || topItems === null || snapshots === null) return null;
+  if (!signedIn) return null;
+  if (error) return <p>Couldn't load your trend chart: {error}</p>;
+  if (topItems === null || snapshots === null) return null;
   if (snapshots.length < 2) return null; // not enough history to plot a trend yet
 
   const tracked = topItems.slice(0, TRACKED_COUNT);

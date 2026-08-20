@@ -76,9 +76,16 @@ describe("GET /api/auth/callback", () => {
 
     expect(row?.display_name).toBe("Owner");
     expect(row?.refresh_token_enc).not.toBe("mock-refresh-token");
+
+    const isOwner = await env.DB.prepare(
+      "SELECT is_owner FROM users WHERE spotify_account_id = ?",
+    )
+      .bind("owner-account-id")
+      .first<{ is_owner: number }>();
+    expect(isOwner?.is_owner).toBe(1);
   });
 
-  it("rejects a login from an account that isn't the owner and isn't allowlisted", async () => {
+  it("rejects a login from an account that isn't the owner, isn't allowlisted, and has no invite", async () => {
     // Seed an existing owner so the table is non-empty.
     await env.DB.prepare(
       "INSERT INTO users (spotify_account_id, display_name, refresh_token_enc) VALUES (?, ?, ?)",
@@ -106,6 +113,42 @@ describe("GET /api/auth/callback", () => {
       .bind("stranger-account-id")
       .first();
     expect(row).toBeNull();
+  });
+
+  it("admits an unrecognized login when an unused invite exists, and consumes it", async () => {
+    await env.DB.prepare(
+      "INSERT INTO users (spotify_account_id, display_name, refresh_token_enc, is_owner) VALUES (?, ?, ?, 1)",
+    )
+      .bind("existing-owner-id-2", "Owner", "irrelevant")
+      .run();
+    const invite = await env.DB.prepare("INSERT INTO invites DEFAULT VALUES").run();
+
+    const { pkceCookie, state } = await login();
+    mockSpotify({ account_id: "invited-friend-id", display_name: "Friend" });
+
+    const request = new Request(
+      `http://example.com/api/auth/callback?code=abc123&state=${state}`,
+      { headers: { Cookie: pkceCookie } },
+    );
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(request, env, ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("Set-Cookie")).toContain("spoticrack_session=");
+
+    const row = await env.DB.prepare(
+      "SELECT is_owner FROM users WHERE spotify_account_id = ?",
+    )
+      .bind("invited-friend-id")
+      .first<{ is_owner: number }>();
+    expect(row?.is_owner).toBe(0);
+
+    const usedInvite = await env.DB.prepare("SELECT used_by, used_at FROM invites WHERE id = ?")
+      .bind(invite.meta.last_row_id)
+      .first<{ used_by: string; used_at: string }>();
+    expect(usedInvite?.used_by).toBe("invited-friend-id");
+    expect(usedInvite?.used_at).toBeTruthy();
   });
 
   it("rejects a callback whose state doesn't match the login's state", async () => {

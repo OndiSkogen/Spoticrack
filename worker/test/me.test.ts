@@ -56,6 +56,7 @@ describe("GET /api/me", () => {
     await expect(res.json()).resolves.toEqual({
       displayName: "Existing User",
       trackingOptIn: false,
+      isOwner: false,
     });
   });
 

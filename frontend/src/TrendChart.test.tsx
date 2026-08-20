@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrendChart } from "./TrendChart";
 
 function jsonResponse(body: unknown, status = 200) {
-  return { ok: status < 400, status, json: async () => body };
+  return { ok: status < 400, status, statusText: "", json: async () => body };
 }
 
 function mockFetches(topItems: { id: string; name: string }[], snapshots: unknown[]) {
@@ -58,5 +58,16 @@ describe("TrendChart", () => {
     const { container } = render(<TrendChart />);
 
     await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it("shows the server's error message when a request fails for a reason other than auth", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "Spotify rate limited us." }, 502)),
+    );
+
+    render(<TrendChart />);
+
+    expect(await screen.findByText(/spotify rate limited us/i)).toBeInTheDocument();
   });
 });

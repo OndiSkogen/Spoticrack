@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrackingControl } from "./TrackingControl";
 
 function jsonResponse(body: unknown, status = 200) {
-  return { ok: status < 400, status, json: async () => body };
+  return { ok: status < 400, status, statusText: "", json: async () => body };
 }
 
 describe("TrackingControl", () => {
@@ -62,6 +62,23 @@ describe("TrackingControl", () => {
 
     expect(await screen.findByText(/snapshot captured/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenLastCalledWith("/api/snapshot/run", { method: "POST" });
+  });
+
+  it("shows the server's actual error message when a snapshot capture fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ displayName: "Jane", trackingOptIn: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: "Failed to fetch your top tracks: Spotify said no." }, 502),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackingControl />);
+
+    const button = await screen.findByRole("button", { name: /capture snapshot now/i });
+    fireEvent.click(button);
+
+    expect(await screen.findByText(/spotify said no/i)).toBeInTheDocument();
   });
 
   it("renders nothing when not signed in", async () => {

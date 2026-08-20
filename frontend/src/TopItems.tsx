@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { apiGet } from "./api";
 
 type TopType = "tracks" | "artists";
 type TimeRange = "short_term" | "medium_term" | "long_term";
 
 type TrackItem = { id: string; name: string; artists: string; albumImage: string | null };
-type ArtistItem = { id: string; name: string; genres: string[]; image: string | null };
+type ArtistItem = { id: string; name: string; image: string | null };
 
 const TIME_RANGES: { value: TimeRange; label: string }[] = [
   { value: "short_term", label: "Last 4 weeks" },
@@ -21,21 +22,26 @@ export function TopItems() {
   const [timeRange, setTimeRange] = useState<TimeRange>("medium_term");
   const [items, setItems] = useState<(TrackItem | ArtistItem)[] | null>(null);
   const [signedIn, setSignedIn] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setItems(null);
+    setError(null);
 
-    fetch(`/api/top?type=${type}&time_range=${timeRange}`).then((res) => {
+    apiGet<{ items: (TrackItem | ArtistItem)[] }>(
+      `/api/top?type=${type}&time_range=${timeRange}`,
+    ).then((result) => {
       if (cancelled) return;
-      if (res.status === 401) {
+      if (result.kind === "unauthenticated") {
         setSignedIn(false);
-        return;
+      } else if (result.kind === "error") {
+        setSignedIn(true);
+        setError(result.message);
+      } else {
+        setSignedIn(true);
+        setItems(result.data.items);
       }
-      setSignedIn(true);
-      res.json().then((data: { items: (TrackItem | ArtistItem)[] }) => {
-        if (!cancelled) setItems(data.items);
-      });
     });
 
     return () => {
@@ -66,7 +72,9 @@ export function TopItems() {
           </button>
         ))}
       </div>
-      {items === null ? (
+      {error ? (
+        <p>Couldn't load your top {type}: {error}</p>
+      ) : items === null ? (
         <p>Loading…</p>
       ) : (
         <ol>
