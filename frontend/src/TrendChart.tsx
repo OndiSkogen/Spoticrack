@@ -50,7 +50,7 @@ export function TrendChart() {
   }, []);
 
   if (!signedIn) return null;
-  if (error) return <p>Couldn't load your trend chart: {error}</p>;
+  if (error) return <p className="error-text">Couldn't load your trend chart: {error}</p>;
   if (topItems === null || snapshots === null) return null;
   if (snapshots.length < 2) return null; // not enough history to plot a trend yet
 
@@ -77,9 +77,9 @@ export function TrendChart() {
   }
 
   return (
-    <section>
+    <section className="panel">
       <h2>Trend: top tracks over time</h2>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%" style={{ maxWidth: 600 }}>
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%" style={{ maxWidth: 600, display: "block" }}>
         {series.map((s, seriesIndex) => {
           const color = COLORS[seriesIndex % COLORS.length];
           const segments: { cx: number; cy: number }[][] = [];
@@ -110,10 +110,15 @@ export function TrendChart() {
           );
         })}
       </svg>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <ul className="legend-row" style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {tracked.map((t, i) => (
-          <li key={t.id} style={{ color: COLORS[i % COLORS.length] }}>
-            ● {t.name}
+          <li key={t.id}>
+            <span
+              className="legend-dot"
+              aria-hidden="true"
+              style={{ background: COLORS[i % COLORS.length] }}
+            />
+            {t.name}
           </li>
         ))}
       </ul>

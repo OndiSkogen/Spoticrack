@@ -52,19 +52,31 @@ export function TopItems() {
   if (!signedIn) return null;
 
   return (
-    <section>
-      <div role="group" aria-label="Item type">
-        <button aria-pressed={type === "tracks"} onClick={() => setType("tracks")}>
-          Tracks
-        </button>
-        <button aria-pressed={type === "artists"} onClick={() => setType("artists")}>
-          Artists
-        </button>
+    <section className="panel">
+      <div className="panel-row" style={{ marginBottom: 14 }}>
+        <h2 style={{ margin: 0 }}>Top {type === "tracks" ? "tracks" : "artists"}</h2>
+        <div role="group" aria-label="Item type" className="pill-group">
+          <button
+            className="pill"
+            aria-pressed={type === "tracks"}
+            onClick={() => setType("tracks")}
+          >
+            Tracks
+          </button>
+          <button
+            className="pill"
+            aria-pressed={type === "artists"}
+            onClick={() => setType("artists")}
+          >
+            Artists
+          </button>
+        </div>
       </div>
-      <div role="group" aria-label="Time range">
+      <div role="group" aria-label="Time range" className="pill-group" style={{ marginBottom: 16 }}>
         {TIME_RANGES.map((tr) => (
           <button
             key={tr.value}
+            className="pill"
             aria-pressed={timeRange === tr.value}
             onClick={() => setTimeRange(tr.value)}
           >
@@ -73,15 +85,20 @@ export function TopItems() {
         ))}
       </div>
       {error ? (
-        <p>Couldn't load your top {type}: {error}</p>
+        <p className="error-text">
+          Couldn't load your top {type}: {error}
+        </p>
       ) : items === null ? (
-        <p>Loading…</p>
+        <p className="eyebrow">Loading…</p>
       ) : (
-        <ol>
-          {items.map((item) => (
-            <li key={item.id}>
-              {item.name}
-              {isTrack(item) ? ` — ${item.artists}` : ""}
+        <ol className="item-list">
+          {items.map((item, index) => (
+            <li key={item.id} className="item-row">
+              <span className="item-rank">{index + 1}</span>
+              <span>
+                <div className="item-name">{item.name}</div>
+                {isTrack(item) && <div className="item-sub">{item.artists}</div>}
+              </span>
             </li>
           ))}
         </ol>

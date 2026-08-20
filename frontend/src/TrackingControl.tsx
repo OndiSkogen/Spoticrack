@@ -40,13 +40,21 @@ export function TrackingControl() {
   if (!signedIn || optIn === null) return null;
 
   return (
-    <section>
-      <label>
+    <section className="panel panel-row">
+      <label className="checkbox-row">
         <input type="checkbox" checked={optIn} onChange={toggle} />
         Track my listening history over time
       </label>
-      <button onClick={captureNow}>Capture snapshot now</button>
-      {snapshotStatus && <p>{snapshotStatus}</p>}
+      <div>
+        <button className="btn" onClick={captureNow}>
+          Capture snapshot now
+        </button>
+        {snapshotStatus && (
+          <p className="eyebrow" style={{ textAlign: "right", marginTop: 8 }}>
+            {snapshotStatus}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

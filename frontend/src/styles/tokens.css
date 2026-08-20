@@ -1,0 +1,63 @@
+:root,
+:root[data-theme="chart-topper"] {
+  --bg: #faf9f6;
+  --panel: #ffffff;
+  --panel-2: #f3f1ea;
+  --line: #e7e4dc;
+  --text: #1c1b19;
+  --muted: #77726a;
+  --accent: #5b4fd6;
+  --accent-soft: #eeecfb;
+  --accent-2: #1c1b19;
+  --accent-2-soft: #efefef;
+  --danger: #c14f4f;
+  --radius: 14px;
+  --radius-pill: 20px;
+  --font-display: "Newsreader", Georgia, serif;
+  --font-body: "Work Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --label-transform: none;
+  --label-tracking: 0;
+}
+
+:root[data-theme="studio-console"] {
+  --bg: #15181c;
+  --panel: #1b1f24;
+  --panel-2: #20252b;
+  --line: #2b3138;
+  --text: #eceae4;
+  --muted: #8b929c;
+  --accent: #6fe0cf;
+  --accent-soft: #23413d;
+  --accent-2: #f0b25e;
+  --accent-2-soft: #4a3a20;
+  --danger: #e0716f;
+  --radius: 4px;
+  --radius-pill: 3px;
+  --font-display: "Big Shoulders Display", sans-serif;
+  --font-body: "IBM Plex Mono", ui-monospace, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --label-transform: uppercase;
+  --label-tracking: 0.12em;
+}
+
+:root[data-theme="vinyl-liner-notes"] {
+  --bg: #2a2018;
+  --panel: #332619;
+  --panel-2: #3a2c1e;
+  --line: #4a3a28;
+  --text: #f0e6d6;
+  --muted: #a99a80;
+  --accent: #c96a3c;
+  --accent-soft: #4a2f20;
+  --accent-2: #5c7a5e;
+  --accent-2-soft: #28362a;
+  --danger: #b9564f;
+  --radius: 2px;
+  --radius-pill: 2px;
+  --font-display: "Bebas Neue", sans-serif;
+  --font-body: "Source Serif 4", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --label-transform: uppercase;
+  --label-tracking: 0.14em;
+}

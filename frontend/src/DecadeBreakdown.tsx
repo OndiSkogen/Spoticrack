@@ -39,32 +39,26 @@ export function DecadeBreakdown() {
   }, []);
 
   if (!signedIn) return null;
-  if (error) return <p>Couldn't load your decade breakdown: {error}</p>;
+  if (error) return <p className="error-text">Couldn't load your decade breakdown: {error}</p>;
   if (decadeCounts === null || decadeCounts.length === 0) return null;
 
   const max = Math.max(...decadeCounts.map((dc) => dc.count));
 
   return (
-    <section>
+    <section className="panel">
       <h2>Decade breakdown</h2>
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {decadeCounts.map((dc) => (
-          <li
-            key={dc.decade}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.25rem 0" }}
-          >
-            <span style={{ width: "6rem", textAlign: "right" }}>{dc.decade}</span>
-            <div style={{ flex: 1, background: "#eee" }}>
+          <li key={dc.decade} className="bar-row">
+            <span className="bar-label">{dc.decade}</span>
+            <div className="bar-track">
               <div
+                className="bar-fill"
                 aria-hidden="true"
-                style={{
-                  width: `${(dc.count / max) * 100}%`,
-                  background: "#5b6bd6",
-                  height: "0.9rem",
-                }}
+                style={{ width: `${(dc.count / max) * 100}%` }}
               />
             </div>
-            <span>{dc.count}</span>
+            <span className="bar-count">{dc.count}</span>
           </li>
         ))}
       </ul>

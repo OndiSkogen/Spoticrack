@@ -43,15 +43,20 @@ export function AuthStatus() {
   if (!me) {
     return (
       <div>
-        {expired && <p>Your session expired. Please sign in again.</p>}
-        <a href="/api/auth/login">Sign in with Spotify</a>
+        {expired && <p className="error-text">Your session expired. Please sign in again.</p>}
+        <a className="btn btn-accent" href="/api/auth/login">
+          Sign in with Spotify
+        </a>
       </div>
     );
   }
 
   return (
-    <p>
-      Signed in as {me.displayName} <button onClick={signOut}>Sign out</button>
+    <p className="eyebrow">
+      Signed in as <strong style={{ color: "var(--text)" }}>{me.displayName}</strong>{" "}
+      <button className="btn" onClick={signOut}>
+        Sign out
+      </button>
     </p>
   );
 }

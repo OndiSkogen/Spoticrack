@@ -23,11 +23,11 @@ export function HealthStatus() {
     };
   }, []);
 
-  if (unreachable) return <p>API unreachable</p>;
-  if (!health) return <p>Checking…</p>;
+  if (unreachable) return <p className="status-line">API unreachable</p>;
+  if (!health) return <p className="status-line">Checking…</p>;
 
   return (
-    <p>
+    <p className="status-line">
       API: {health.status} · DB: {health.db}
     </p>
   );

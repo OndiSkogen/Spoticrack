@@ -31,7 +31,7 @@ describe("AuthStatus", () => {
 
     render(<AuthStatus />);
 
-    expect(await screen.findByText(/signed in as jane listener/i)).toBeInTheDocument();
+    expect(await screen.findByText("Jane Listener")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign out/i })).toBeInTheDocument();
   });
 
@@ -68,7 +68,7 @@ describe("AuthStatus", () => {
     );
 
     render(<AuthStatus />);
-    await screen.findByText(/signed in as jane listener/i);
+    await screen.findByText("Jane Listener");
 
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
 

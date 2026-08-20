@@ -36,17 +36,25 @@ export function InviteManager() {
   if (!signedIn || !isOwner || invites === null) return null;
 
   return (
-    <section>
-      <h2>Invite a friend</h2>
-      <p>{invites.pending} pending invite{invites.pending === 1 ? "" : "s"}</p>
+    <section className="panel">
+      <div className="panel-row">
+        <div>
+          <div className="eyebrow">Owner</div>
+          <p style={{ margin: "4px 0 0" }}>
+            {invites.pending} pending invite{invites.pending === 1 ? "" : "s"}
+          </p>
+        </div>
+        <button className="btn btn-accent" onClick={createInvite}>
+          Invite a friend
+        </button>
+      </div>
       {invites.used.length > 0 && (
-        <ul>
+        <ul style={{ marginTop: 12, paddingLeft: 18, fontSize: 13, color: "var(--muted)" }}>
           {invites.used.map((u, i) => (
             <li key={i}>{u.displayName} joined</li>
           ))}
         </ul>
       )}
-      <button onClick={createInvite}>Invite a friend</button>
     </section>
   );
 }
