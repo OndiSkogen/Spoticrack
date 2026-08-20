@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
-import { decrypt, encrypt, importEncryptionKey } from "./crypto";
+import { encrypt, importEncryptionKey } from "./crypto";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
+import { fetchWithBackoff, getFreshAccessToken } from "./spotify";
 
 export type Env = {
   DB: D1Database;
@@ -20,7 +21,22 @@ type SpotifyTokenResponse = {
   refresh_token: string;
 };
 
+type SpotifyTrack = {
+  id: string;
+  name: string;
+  artists: { name: string }[];
+  album: { images: { url: string }[] };
+};
+
+type SpotifyArtist = {
+  id: string;
+  name: string;
+  genres: string[];
+  images: { url: string }[];
+};
+
 const SCOPES = "user-read-private user-read-email user-top-read";
+const TOP_TIME_RANGES = ["short_term", "medium_term", "long_term"] as const;
 const PKCE_COOKIE = "spoticrack_pkce";
 const SESSION_COOKIE = "spoticrack_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -168,47 +184,17 @@ app.get("/api/me", async (c) => {
     return c.json({ error: "Not signed in." }, 401);
   }
 
-  const user = await c.env.DB.prepare(
-    "SELECT refresh_token_enc FROM users WHERE spotify_account_id = ?",
-  )
-    .bind(accountId)
-    .first<{ refresh_token_enc: string }>();
-
-  if (!user) {
-    deleteCookie(c, SESSION_COOKIE, { path: "/" });
-    return c.json({ error: "Not signed in." }, 401);
-  }
-
-  const encryptionKey = await importEncryptionKey(c.env.REFRESH_TOKEN_ENCRYPTION_KEY);
-  const refreshToken = await decrypt(user.refresh_token_enc, encryptionKey);
-
-  const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: c.env.SPOTIFY_CLIENT_ID,
-    }),
-  });
-
-  if (!tokenRes.ok) {
+  const accessToken = await getFreshAccessToken(c.env, accountId);
+  if (!accessToken) {
     deleteCookie(c, SESSION_COOKIE, { path: "/" });
     return c.json({ error: "Your Spotify session expired. Please sign in again." }, 401);
   }
 
-  const tokens = await tokenRes.json<{ access_token: string; refresh_token?: string }>();
-
-  if (tokens.refresh_token) {
-    const reEncrypted = await encrypt(tokens.refresh_token, encryptionKey);
-    await c.env.DB.prepare("UPDATE users SET refresh_token_enc = ? WHERE spotify_account_id = ?")
-      .bind(reEncrypted, accountId)
-      .run();
-  }
-
-  const profileRes = await fetch("https://api.spotify.com/v1/me", {
-    headers: { Authorization: `Bearer ${tokens.access_token}` },
-  });
+  const profileRes = await fetchWithBackoff(() =>
+    fetch("https://api.spotify.com/v1/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }),
+  );
 
   if (!profileRes.ok) {
     return c.json(
@@ -219,6 +205,66 @@ app.get("/api/me", async (c) => {
 
   const profile = await profileRes.json<SpotifyProfile>();
   return c.json({ displayName: profile.display_name ?? "Spotify User" });
+});
+
+app.get("/api/top", async (c) => {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const type = c.req.query("type");
+  if (type !== "tracks" && type !== "artists") {
+    return c.json({ error: "type must be 'tracks' or 'artists'." }, 400);
+  }
+
+  const timeRange = c.req.query("time_range") ?? "medium_term";
+  if (!TOP_TIME_RANGES.includes(timeRange as (typeof TOP_TIME_RANGES)[number])) {
+    return c.json(
+      { error: `time_range must be one of: ${TOP_TIME_RANGES.join(", ")}.` },
+      400,
+    );
+  }
+
+  const accessToken = await getFreshAccessToken(c.env, accountId);
+  if (!accessToken) {
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    return c.json({ error: "Your Spotify session expired. Please sign in again." }, 401);
+  }
+
+  const url = new URL(`https://api.spotify.com/v1/me/top/${type}`);
+  url.searchParams.set("time_range", timeRange);
+  url.searchParams.set("limit", "50");
+
+  const res = await fetchWithBackoff(() =>
+    fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } }),
+  );
+
+  if (!res.ok) {
+    return c.json({ error: `Failed to fetch your top ${type}: ${await res.text()}` }, 502);
+  }
+
+  if (type === "tracks") {
+    const data = await res.json<{ items: SpotifyTrack[] }>();
+    return c.json({
+      items: data.items.map((t) => ({
+        id: t.id,
+        name: t.name,
+        artists: t.artists.map((a) => a.name).join(", "),
+        albumImage: t.album.images[0]?.url ?? null,
+      })),
+    });
+  }
+
+  const data = await res.json<{ items: SpotifyArtist[] }>();
+  return c.json({
+    items: data.items.map((a) => ({
+      id: a.id,
+      name: a.name,
+      genres: a.genres,
+      image: a.images[0]?.url ?? null,
+    })),
+  });
 });
 
 app.post("/api/auth/logout", async (c) => {
