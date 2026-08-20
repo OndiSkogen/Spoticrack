@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { encrypt, importEncryptionKey } from "./crypto";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
+import { captureSnapshot } from "./snapshot";
 import { fetchWithBackoff, getFreshAccessToken } from "./spotify";
 
 export type Env = {
@@ -203,7 +204,48 @@ app.get("/api/me", async (c) => {
   }
 
   const profile = await profileRes.json<SpotifyProfile>();
-  return c.json({ displayName: profile.display_name ?? "Spotify User" });
+
+  const user = await c.env.DB.prepare(
+    "SELECT tracking_opt_in FROM users WHERE spotify_account_id = ?",
+  )
+    .bind(accountId)
+    .first<{ tracking_opt_in: number }>();
+
+  return c.json({
+    displayName: profile.display_name ?? "Spotify User",
+    trackingOptIn: user?.tracking_opt_in === 1,
+  });
+});
+
+app.post("/api/tracking", async (c) => {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const { optIn } = await c.req.json<{ optIn: boolean }>();
+
+  await c.env.DB.prepare("UPDATE users SET tracking_opt_in = ? WHERE spotify_account_id = ?")
+    .bind(optIn ? 1 : 0, accountId)
+    .run();
+
+  return c.json({ trackingOptIn: optIn });
+});
+
+app.post("/api/snapshot/run", async (c) => {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const accessToken = await getFreshAccessToken(c.env, accountId);
+  if (!accessToken) {
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    return c.json({ error: "Your Spotify session expired. Please sign in again." }, 401);
+  }
+
+  const snapshots = await captureSnapshot(c.env, accountId, accessToken);
+  return c.json({ snapshots });
 });
 
 app.get("/api/top", async (c) => {
@@ -264,6 +306,86 @@ app.get("/api/top", async (c) => {
       image: a.images[0]?.url ?? null,
     })),
   });
+});
+
+app.get("/api/history", async (c) => {
+  const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
+  if (!accountId) {
+    return c.json({ error: "Not signed in." }, 401);
+  }
+
+  const type = c.req.query("type");
+  if (type !== "tracks" && type !== "artists") {
+    return c.json({ error: "type must be 'tracks' or 'artists'." }, 400);
+  }
+
+  const timeRange = c.req.query("time_range") ?? "medium_term";
+  if (!TOP_TIME_RANGES.includes(timeRange as (typeof TOP_TIME_RANGES)[number])) {
+    return c.json(
+      { error: `time_range must be one of: ${TOP_TIME_RANGES.join(", ")}.` },
+      400,
+    );
+  }
+
+  const itemType = type === "tracks" ? "track" : "artist";
+
+  const snapshot = await c.env.DB.prepare(
+    "SELECT id, captured_at FROM snapshots WHERE user_id = ? AND time_range = ? ORDER BY captured_at DESC LIMIT 1",
+  )
+    .bind(accountId, timeRange)
+    .first<{ id: number; captured_at: string }>();
+
+  if (!snapshot) {
+    return c.json({ capturedAt: null, items: [] });
+  }
+
+  const itemRows = await c.env.DB.prepare(
+    "SELECT rank, spotify_id FROM snapshot_items WHERE snapshot_id = ? AND item_type = ? ORDER BY rank",
+  )
+    .bind(snapshot.id, itemType)
+    .all<{ rank: number; spotify_id: string }>();
+
+  const accessToken = await getFreshAccessToken(c.env, accountId);
+  if (!accessToken) {
+    deleteCookie(c, SESSION_COOKIE, { path: "/" });
+    return c.json({ error: "Your Spotify session expired. Please sign in again." }, 401);
+  }
+
+  const endpoint = type === "tracks" ? "tracks" : "artists";
+  const items = await Promise.all(
+    itemRows.results.map(async (row) => {
+      const res = await fetchWithBackoff(() =>
+        fetch(`https://api.spotify.com/v1/${endpoint}/${row.spotify_id}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
+      );
+
+      if (!res.ok) {
+        return { rank: row.rank, id: row.spotify_id, name: null };
+      }
+
+      if (type === "tracks") {
+        const track = await res.json<SpotifyTrack>();
+        return {
+          rank: row.rank,
+          id: track.id,
+          name: track.name,
+          artists: track.artists.map((a) => a.name).join(", "),
+          albumImage: track.album.images[0]?.url ?? null,
+        };
+      }
+
+      const artist = await res.json<SpotifyArtist>();
+      return {
+        rank: row.rank,
+        id: artist.id,
+        name: artist.name,
+        image: artist.images[0]?.url ?? null,
+      };
+    }),
+  );
+
+  return c.json({ capturedAt: snapshot.captured_at, items });
 });
 
 app.post("/api/auth/logout", async (c) => {

@@ -53,7 +53,10 @@ describe("GET /api/me", () => {
     await waitOnExecutionContext(ctx);
 
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ displayName: "Existing User" });
+    await expect(res.json()).resolves.toEqual({
+      displayName: "Existing User",
+      trackingOptIn: false,
+    });
   });
 
   it("returns 401 and clears the session when the refresh token is no longer valid", async () => {
