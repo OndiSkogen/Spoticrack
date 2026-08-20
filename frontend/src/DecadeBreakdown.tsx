@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "./api";
-import { aggregateDecades, type DecadeCount } from "./decades";
+import { groupYearsByDecade, type DecadeGroup } from "./decades";
 
 type TrackItem = {
   id: string;
@@ -11,7 +11,7 @@ type TrackItem = {
 };
 
 export function DecadeBreakdown() {
-  const [decadeCounts, setDecadeCounts] = useState<DecadeCount[] | null>(null);
+  const [groups, setGroups] = useState<DecadeGroup[] | null>(null);
   const [signedIn, setSignedIn] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export function DecadeBreakdown() {
           setError(result.message);
         } else {
           setSignedIn(true);
-          setDecadeCounts(aggregateDecades(result.data.items));
+          setGroups(groupYearsByDecade(result.data.items));
         }
       },
     );
@@ -40,28 +40,36 @@ export function DecadeBreakdown() {
 
   if (!signedIn) return null;
   if (error) return <p className="error-text">Couldn't load your decade breakdown: {error}</p>;
-  if (decadeCounts === null || decadeCounts.length === 0) return null;
+  if (groups === null || groups.length === 0) return null;
 
-  const max = Math.max(...decadeCounts.map((dc) => dc.count));
+  const maxYearCount = Math.max(...groups.flatMap((g) => g.years.map((y) => y.count)));
 
   return (
     <section className="panel">
       <h2>Decade breakdown</h2>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {decadeCounts.map((dc) => (
-          <li key={dc.decade} className="bar-row">
-            <span className="bar-label">{dc.decade}</span>
-            <div className="bar-track">
-              <div
-                className="bar-fill"
-                aria-hidden="true"
-                style={{ width: `${(dc.count / max) * 100}%` }}
-              />
-            </div>
-            <span className="bar-count">{dc.count}</span>
-          </li>
-        ))}
-      </ul>
+      {groups.map((g) => (
+        <div key={g.decade} className="decade-group">
+          <div className="decade-group__header">
+            <h3>{g.decade}</h3>
+            <span className="decade-group__count">{g.count}</span>
+          </div>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {g.years.map((y) => (
+              <li key={y.year} className="bar-row">
+                <span className="bar-label">{y.year}</span>
+                <div className="bar-track">
+                  <div
+                    className="bar-fill"
+                    aria-hidden="true"
+                    style={{ width: `${(y.count / maxYearCount) * 100}%` }}
+                  />
+                </div>
+                <span className="bar-count">{y.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </section>
   );
 }

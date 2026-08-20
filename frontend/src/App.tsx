@@ -1,5 +1,6 @@
 import { AuthStatus } from "./AuthStatus";
 import { DecadeBreakdown } from "./DecadeBreakdown";
+import { isLocalHost } from "./env";
 import { HealthStatus } from "./HealthStatus";
 import { InviteManager } from "./InviteManager";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -31,7 +32,7 @@ export function App() {
         </div>
       </header>
       <ThemeSwitcher />
-      <HealthStatus />
+      {isLocalHost() && <HealthStatus />}
       <InviteManager />
       <TrackingControl />
       <TopItems />

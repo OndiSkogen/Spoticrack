@@ -1,35 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { aggregateDecades } from "./decades";
+import { groupYearsByDecade } from "./decades";
 
-describe("aggregateDecades", () => {
+describe("groupYearsByDecade", () => {
   it("returns an empty list for no tracks", () => {
-    expect(aggregateDecades([])).toEqual([]);
+    expect(groupYearsByDecade([])).toEqual([]);
   });
 
-  it("buckets a release year into its decade", () => {
-    expect(aggregateDecades([{ releaseYear: 2004 }])).toEqual([{ decade: "2000s", count: 1 }]);
+  it("groups a single track under its year and decade", () => {
+    expect(groupYearsByDecade([{ releaseYear: 2015 }])).toEqual([
+      { decade: "2010s", count: 1, years: [{ year: 2015, count: 1 }] },
+    ]);
   });
 
-  it("sums counts for multiple tracks in the same decade", () => {
-    const result = aggregateDecades([
-      { releaseYear: 2001 },
-      { releaseYear: 2009 },
+  it("sums multiple tracks in the same year", () => {
+    const result = groupYearsByDecade([{ releaseYear: 2015 }, { releaseYear: 2015 }]);
+    expect(result).toEqual([{ decade: "2010s", count: 2, years: [{ year: 2015, count: 2 }] }]);
+  });
+
+  it("groups multiple years under the same decade, years sorted ascending", () => {
+    const result = groupYearsByDecade([
+      { releaseYear: 2019 },
       { releaseYear: 2015 },
+      { releaseYear: 2015 },
+      { releaseYear: 2011 },
     ]);
 
     expect(result).toEqual([
-      { decade: "2000s", count: 2 },
-      { decade: "2010s", count: 1 },
+      {
+        decade: "2010s",
+        count: 4,
+        years: [
+          { year: 2011, count: 1 },
+          { year: 2015, count: 2 },
+          { year: 2019, count: 1 },
+        ],
+      },
     ]);
   });
 
-  it("sorts chronologically ascending regardless of input order", () => {
-    const result = aggregateDecades([
+  it("sorts decade groups chronologically ascending", () => {
+    const result = groupYearsByDecade([
       { releaseYear: 2018 },
       { releaseYear: 1995 },
       { releaseYear: 2003 },
     ]);
 
-    expect(result.map((r) => r.decade)).toEqual(["1990s", "2000s", "2010s"]);
+    expect(result.map((g) => g.decade)).toEqual(["1990s", "2000s", "2010s"]);
   });
 });

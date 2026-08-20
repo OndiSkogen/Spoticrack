@@ -11,7 +11,7 @@ describe("DecadeBreakdown", () => {
     vi.unstubAllGlobals();
   });
 
-  it("fetches top tracks and renders decade counts in chronological order", async () => {
+  it("fetches top tracks and renders individual years grouped under their decade", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         items: [
@@ -25,13 +25,15 @@ describe("DecadeBreakdown", () => {
 
     render(<DecadeBreakdown />);
 
-    expect(await screen.findByText("1990s")).toBeInTheDocument();
-    expect(screen.getByText("2010s")).toBeInTheDocument();
+    // Decade group headers, chronological order, with the group's total.
+    const headers = await screen.findAllByRole("heading", { level: 3 });
+    expect(headers.map((h) => h.textContent)).toEqual(["1990s", "2010s"]);
     expect(fetchMock).toHaveBeenCalledWith("/api/top?type=tracks&time_range=medium_term");
 
-    const items = screen.getAllByRole("listitem");
-    expect(items[0]).toHaveTextContent("1990s");
-    expect(items[1]).toHaveTextContent("2010s");
+    // Individual years, each its own row, nested under their decade.
+    const years = screen.getAllByRole("listitem");
+    expect(years[0]).toHaveTextContent("1998");
+    expect(years[1]).toHaveTextContent("2015");
   });
 
   it("renders nothing when not signed in", async () => {
