@@ -18,3 +18,7 @@ run_worker_first = ["/api/*"]
 binding = "DB"
 database_name = "spoticrack-db"
 database_id = "c6b8a1f1-1544-4021-81ee-d526b6adbea5"
+
+# Daily snapshot capture for opted-in users + old-snapshot retention prune.
+[triggers]
+crons = ["0 6 * * *"]

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { encrypt, importEncryptionKey } from "./crypto";
 import { generateCodeChallenge, generateCodeVerifier } from "./pkce";
+import { pruneOldSnapshots, runScheduledSnapshots } from "./scheduled";
 import { captureSnapshot } from "./snapshot";
 import { fetchWithBackoff, getFreshAccessToken } from "./spotify";
 
@@ -393,4 +394,14 @@ app.post("/api/auth/logout", async (c) => {
   return c.json({ ok: true });
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      (async () => {
+        await runScheduledSnapshots(env);
+        await pruneOldSnapshots(env);
+      })(),
+    );
+  },
+};
