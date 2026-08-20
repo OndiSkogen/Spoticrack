@@ -3,9 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Local dev / test placeholder. After running `wrangler d1 create spoticrack-db`,
-# replace database_id below with the real id Cloudflare gives you.
+# Comma-separated allowlist of origins permitted to call this API.
+# Add the deployed pages.dev origin once the frontend is live.
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5173"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "spoticrack-db"
-database_id = "local-dev-placeholder"
+database_id = "c6b8a1f1-1544-4021-81ee-d526b6adbea5"

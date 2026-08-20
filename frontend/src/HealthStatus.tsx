@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { apiUrl } from "./api";
 
 type Health = { status: string; db: string };
 
@@ -9,7 +10,7 @@ export function HealthStatus() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/health")
+    fetch(apiUrl("/api/health"))
       .then((res) => res.json() as Promise<Health>)
       .then((data) => {
         if (!cancelled) setHealth(data);

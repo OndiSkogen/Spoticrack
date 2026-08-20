@@ -14,10 +14,10 @@ dist-ssr/
 # Test / coverage
 coverage/
 
-# Env files (never commit secrets)
-.env
-.env.*
-!.env.example
+# Env files — .env / .env.production hold no secrets (frontend bundles are
+# public anyway) and are committed on purpose; only local overrides are ignored.
+.env.local
+.env.*.local
 
 # Logs
 *.log
