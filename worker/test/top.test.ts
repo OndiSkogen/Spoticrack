@@ -157,6 +157,44 @@ describe("GET /api/top", () => {
     });
   });
 
+  it("always requests limit=50 from Spotify", async () => {
+    const sessionCookie = await sessionCookieFor("top-account-limit-default", "seed-refresh-token");
+    let requestedUrl = "";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === "https://accounts.spotify.com/api/token") {
+          return new Response(JSON.stringify({ access_token: "fresh-access-token" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.startsWith("https://api.spotify.com/v1/me/top/tracks")) {
+          requestedUrl = url;
+          return new Response(JSON.stringify({ items: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`Unexpected fetch to ${url}`);
+      }),
+    );
+
+    const ctx = createExecutionContext();
+    await worker.fetch(
+      new Request("http://example.com/api/top?type=tracks", {
+        headers: { Cookie: sessionCookie },
+      }),
+      env,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+
+    expect(new URL(requestedUrl).searchParams.get("limit")).toBe("50");
+  });
+
   it("returns 401 and clears the session when the access token can't be refreshed", async () => {
     const sessionCookie = await sessionCookieFor("expired-top-account", "seed-refresh-token");
 

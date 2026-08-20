@@ -38,6 +38,7 @@ type SpotifyArtist = {
 
 const SCOPES = "user-read-private user-read-email user-top-read";
 const TOP_TIME_RANGES = ["short_term", "medium_term", "long_term"] as const;
+const TOP_LIMIT = 50;
 const PKCE_COOKIE = "spoticrack_pkce";
 const SESSION_COOKIE = "spoticrack_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -346,7 +347,7 @@ app.get("/api/top", async (c) => {
 
   const url = new URL(`https://api.spotify.com/v1/me/top/${type}`);
   url.searchParams.set("time_range", timeRange);
-  url.searchParams.set("limit", "50");
+  url.searchParams.set("limit", String(TOP_LIMIT));
 
   const res = await fetchWithBackoff(() =>
     fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } }),

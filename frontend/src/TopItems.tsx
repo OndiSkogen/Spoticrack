@@ -13,6 +13,9 @@ const TIME_RANGES: { value: TimeRange; label: string }[] = [
   { value: "long_term", label: "All time" },
 ];
 
+const COUNTS = [10, 25, 50] as const;
+type Count = (typeof COUNTS)[number];
+
 function isTrack(item: TrackItem | ArtistItem): item is TrackItem {
   return "artists" in item;
 }
@@ -20,6 +23,7 @@ function isTrack(item: TrackItem | ArtistItem): item is TrackItem {
 export function TopItems() {
   const [type, setType] = useState<TopType>("tracks");
   const [timeRange, setTimeRange] = useState<TimeRange>("medium_term");
+  const [count, setCount] = useState<Count>(10);
   const [items, setItems] = useState<(TrackItem | ArtistItem)[] | null>(null);
   const [signedIn, setSignedIn] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +52,8 @@ export function TopItems() {
       cancelled = true;
     };
   }, [type, timeRange]);
+
+  const visibleItems = items?.slice(0, count) ?? null;
 
   if (!signedIn) return null;
 
@@ -84,15 +90,27 @@ export function TopItems() {
           </button>
         ))}
       </div>
+      <div role="group" aria-label="Result count" className="pill-group" style={{ marginBottom: 16 }}>
+        {COUNTS.map((c) => (
+          <button
+            key={c}
+            className="pill"
+            aria-pressed={count === c}
+            onClick={() => setCount(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
       {error ? (
         <p className="error-text">
           Couldn't load your top {type}: {error}
         </p>
-      ) : items === null ? (
+      ) : visibleItems === null ? (
         <p className="eyebrow">Loading…</p>
       ) : (
         <ol className="item-list">
-          {items.map((item, index) => (
+          {visibleItems.map((item, index) => (
             <li key={item.id} className="item-row">
               <span className="item-rank">{index + 1}</span>
               <span>

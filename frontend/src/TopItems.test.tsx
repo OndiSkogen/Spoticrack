@@ -42,7 +42,9 @@ describe("TopItems", () => {
     fireEvent.click(screen.getByRole("button", { name: /^artists$/i }));
 
     expect(await screen.findByText(/band x/i)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith("/api/top?type=artists&time_range=medium_term");
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/top?type=artists&time_range=medium_term",
+    );
   });
 
   it("switches time range and refetches with the new time_range", async () => {
@@ -55,8 +57,44 @@ describe("TopItems", () => {
     fireEvent.click(screen.getByRole("button", { name: /last 4 weeks/i }));
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenLastCalledWith("/api/top?type=tracks&time_range=short_term"),
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/top?type=tracks&time_range=short_term",
+      ),
     );
+  });
+
+  it("defaults to showing 10 results", async () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({
+      id: `t${i}`,
+      name: `Song ${i}`,
+      artists: "Artist",
+      albumImage: null,
+    }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ items })));
+
+    render(<TopItems />);
+
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(10));
+    expect(screen.getByRole("button", { name: "10" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("switches result count by slicing the already-fetched items, without a new fetch", async () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({
+      id: `t${i}`,
+      name: `Song ${i}`,
+      artists: "Artist",
+      albumImage: null,
+    }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TopItems />);
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(10));
+
+    fireEvent.click(screen.getByRole("button", { name: "50" }));
+
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(50));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("renders nothing when not signed in", async () => {
