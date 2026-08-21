@@ -460,7 +460,9 @@ app.get("/api/history", async (c) => {
   return c.json({ capturedAt: snapshot.captured_at, items });
 });
 
-const TREND_SNAPSHOT_LIMIT = 14;
+// Widest window the frontend's time-frame selector offers (1 month); it
+// slices this down client-side, so no extra requests are needed to switch.
+const TREND_SNAPSHOT_LIMIT = 30;
 
 app.get("/api/trend", async (c) => {
   const accountId = await getSignedCookie(c, c.env.SESSION_SECRET, SESSION_COOKIE);
@@ -483,8 +485,17 @@ app.get("/api/trend", async (c) => {
 
   const itemType = type === "tracks" ? "track" : "artist";
 
+  // One row per calendar day - if a day has multiple captures (e.g. a
+  // manual capture on top of the daily cron), only the latest one counts.
   const snapshots = await c.env.DB.prepare(
-    "SELECT id, captured_at FROM snapshots WHERE user_id = ? AND time_range = ? ORDER BY captured_at DESC LIMIT ?",
+    `SELECT id, captured_at FROM (
+       SELECT id, captured_at,
+              ROW_NUMBER() OVER (PARTITION BY date(captured_at) ORDER BY captured_at DESC) AS rn
+       FROM snapshots
+       WHERE user_id = ? AND time_range = ?
+     ) WHERE rn = 1
+     ORDER BY captured_at DESC
+     LIMIT ?`,
   )
     .bind(accountId, timeRange, TREND_SNAPSHOT_LIMIT)
     .all<{ id: number; captured_at: string }>();

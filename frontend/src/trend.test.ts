@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildTrendSeries } from "./trend";
+import { buildTrendSeries, formatDay, formatMonth } from "./trend";
+
+describe("formatDay", () => {
+  it("returns just the day number", () => {
+    expect(formatDay("2026-07-22 08:00:00")).toBe("22");
+    expect(formatDay("2026-08-03 08:00:00")).toBe("3");
+  });
+});
+
+describe("formatMonth", () => {
+  it("returns the short month name", () => {
+    expect(formatMonth("2026-07-22 08:00:00")).toBe("Jul");
+    expect(formatMonth("2026-08-03 08:00:00")).toBe("Aug");
+  });
+});
 
 describe("buildTrendSeries", () => {
   it("returns an empty points array per tracked id when there are no snapshots", () => {

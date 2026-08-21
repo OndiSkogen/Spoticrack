@@ -103,6 +103,45 @@ describe("GET /api/trend", () => {
     });
   });
 
+  it("collapses same-day snapshots down to the latest one for that day", async () => {
+    const sessionCookie = await sessionCookieFor("same-day-account", "seed-refresh-token");
+
+    await seedSnapshot("same-day-account", "medium_term", "2026-08-18 06:00:00", [
+      { itemType: "track", rank: 1, spotifyId: "track-morning" },
+    ]);
+    // A second manual capture later the same day - should replace the morning one.
+    await seedSnapshot("same-day-account", "medium_term", "2026-08-18 18:00:00", [
+      { itemType: "track", rank: 1, spotifyId: "track-evening" },
+    ]);
+    await seedSnapshot("same-day-account", "medium_term", "2026-08-19 06:00:00", [
+      { itemType: "track", rank: 1, spotifyId: "track-next-day" },
+    ]);
+
+    const ctx = createExecutionContext();
+    const res = await worker.fetch(
+      new Request("http://example.com/api/trend?type=tracks&time_range=medium_term", {
+        headers: { Cookie: sessionCookie },
+      }),
+      env,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      snapshots: [
+        {
+          capturedAt: "2026-08-18 18:00:00",
+          items: [{ id: "track-evening", rank: 1 }],
+        },
+        {
+          capturedAt: "2026-08-19 06:00:00",
+          items: [{ id: "track-next-day", rank: 1 }],
+        },
+      ],
+    });
+  });
+
   it("rejects an invalid type", async () => {
     const sessionCookie = await sessionCookieFor("trend-account-2", "seed-refresh-token");
 

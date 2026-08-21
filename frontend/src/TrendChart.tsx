@@ -1,17 +1,33 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "./api";
-import { buildTrendSeries, type TrendSnapshot } from "./trend";
+import { buildTrendSeries, formatDay, formatMonth, type TrendSnapshot } from "./trend";
 
 type TopItem = { id: string; name: string };
 
-const COLORS = ["#5b6bd6", "#d65b8a", "#5bd6a0", "#d6a05b", "#8a5bd6"];
-const TRACKED_COUNT = 5;
+const COUNTS = [5, 10, 15, 25] as const;
+type Count = (typeof COUNTS)[number];
+
+const TIME_FRAMES = [
+  { value: 7, label: "1 week" },
+  { value: 14, label: "2 weeks" },
+  { value: 30, label: "1 month" },
+] as const;
+type Days = (typeof TIME_FRAMES)[number]["value"];
+
+function colorForIndex(index: number, total: number): string {
+  const hue = Math.round((360 * index) / Math.max(total, 1));
+  return `hsl(${hue}deg 65% 55%)`;
+}
+
 const WIDTH = 480;
 const HEIGHT = 200;
 const PADDING = 24;
+const LABEL_AREA = 34;
 
 export function TrendChart() {
   const [signedIn, setSignedIn] = useState(true);
+  const [count, setCount] = useState<Count>(5);
+  const [days, setDays] = useState<Days>(14);
   const [topItems, setTopItems] = useState<TopItem[] | null>(null);
   const [snapshots, setSnapshots] = useState<TrendSnapshot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +68,13 @@ export function TrendChart() {
   if (!signedIn) return null;
   if (error) return <p className="error-text">Couldn't load your trend chart: {error}</p>;
   if (topItems === null || snapshots === null) return null;
-  if (snapshots.length < 2) return null; // not enough history to plot a trend yet
 
-  const tracked = topItems.slice(0, TRACKED_COUNT);
+  const visibleSnapshots = snapshots.slice(-days);
+  if (visibleSnapshots.length < 2) return null; // not enough history to plot a trend yet
+
+  const tracked = topItems.slice(0, count);
   const series = buildTrendSeries(
-    snapshots,
+    visibleSnapshots,
     tracked.map((t) => t.id),
   );
 
@@ -65,7 +83,7 @@ export function TrendChart() {
     .filter((r): r is number => r !== null);
   const minRank = Math.min(...allRanks);
   const maxRank = Math.max(...allRanks);
-  const n = snapshots.length;
+  const n = visibleSnapshots.length;
 
   function x(i: number): number {
     return n === 1 ? WIDTH / 2 : PADDING + (i / (n - 1)) * (WIDTH - 2 * PADDING);
@@ -78,10 +96,59 @@ export function TrendChart() {
 
   return (
     <section className="panel">
-      <h2>Trend: top tracks over time</h2>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%" style={{ maxWidth: 600, display: "block" }}>
+      <div className="panel-row" style={{ marginBottom: 14 }}>
+        <h2 style={{ margin: 0 }}>Trend: top tracks over time</h2>
+        <div role="group" aria-label="Track count" className="pill-group">
+          {COUNTS.map((c) => (
+            <button key={c} className="pill" aria-pressed={count === c} onClick={() => setCount(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div role="group" aria-label="Time frame" className="pill-group" style={{ marginBottom: 16 }}>
+        {TIME_FRAMES.map((tf) => (
+          <button
+            key={tf.value}
+            className="pill"
+            aria-pressed={days === tf.value}
+            onClick={() => setDays(tf.value)}
+          >
+            {tf.label}
+          </button>
+        ))}
+      </div>
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT + LABEL_AREA}`}
+        width="100%"
+        style={{ maxWidth: 600, display: "block" }}
+      >
+        {visibleSnapshots.map((snap, i) => {
+          const month = formatMonth(snap.capturedAt);
+          const isNewMonth = i === 0 || month !== formatMonth(visibleSnapshots[i - 1].capturedAt);
+          return (
+            <g key={snap.capturedAt}>
+              <text className="axis-day" x={x(i)} y={HEIGHT + 14} fontSize={9} fill="var(--muted)" textAnchor="middle">
+                {formatDay(snap.capturedAt)}
+              </text>
+              {isNewMonth && (
+                <text
+                  className="axis-month"
+                  x={x(i)}
+                  y={HEIGHT + 28}
+                  fontSize={9}
+                  fontWeight={600}
+                  fill="var(--accent)"
+                  textAnchor="middle"
+                >
+                  {month}
+                </text>
+              )}
+            </g>
+          );
+        })}
         {series.map((s, seriesIndex) => {
-          const color = COLORS[seriesIndex % COLORS.length];
+          const color = colorForIndex(seriesIndex, tracked.length);
           const segments: { cx: number; cy: number }[][] = [];
           let current: { cx: number; cy: number }[] = [];
 
@@ -110,13 +177,13 @@ export function TrendChart() {
           );
         })}
       </svg>
-      <ul className="legend-row" style={{ listStyle: "none", padding: 0, margin: 0 }}>
+      <ul className="legend-row" style={{ listStyle: "none", padding: 0, margin: 0, marginTop: 5 }}>
         {tracked.map((t, i) => (
           <li key={t.id}>
             <span
               className="legend-dot"
               aria-hidden="true"
-              style={{ background: COLORS[i % COLORS.length] }}
+              style={{ background: colorForIndex(i, tracked.length) }}
             />
             {t.name}
           </li>

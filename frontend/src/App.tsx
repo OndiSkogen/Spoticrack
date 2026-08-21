@@ -36,8 +36,8 @@ export function App() {
       <InviteManager />
       <TrackingControl />
       <TopItems />
-      <DecadeBreakdown />
       <TrendChart />
+      <DecadeBreakdown />
     </div>
   );
 }

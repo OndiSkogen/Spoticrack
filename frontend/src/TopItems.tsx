@@ -10,7 +10,7 @@ type ArtistItem = { id: string; name: string; image: string | null };
 const TIME_RANGES: { value: TimeRange; label: string }[] = [
   { value: "short_term", label: "Last 4 weeks" },
   { value: "medium_term", label: "Last 6 months" },
-  { value: "long_term", label: "All time" },
+  { value: "long_term", label: "Last 12 months" },
 ];
 
 const COUNTS = [10, 25, 50] as const;
