@@ -28,6 +28,7 @@ export function TrendChart() {
   const [signedIn, setSignedIn] = useState(true);
   const [count, setCount] = useState<Count>(5);
   const [days, setDays] = useState<Days>(14);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [topItems, setTopItems] = useState<TopItem[] | null>(null);
   const [snapshots, setSnapshots] = useState<TrendSnapshot[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,32 +163,62 @@ export function TrendChart() {
           });
           if (current.length) segments.push(current);
 
+          const isHovered = hoveredId === s.id;
+          const isDimmed = hoveredId !== null && !isHovered;
+
           return (
-            <g key={s.id}>
+            <g
+              key={s.id}
+              data-series-id={s.id}
+              onMouseEnter={() => setHoveredId(s.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
               {segments.map((seg, segIndex) => (
-                <polyline
-                  key={segIndex}
-                  points={seg.map((pt) => `${pt.cx},${pt.cy}`).join(" ")}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2}
-                />
+                <g key={segIndex}>
+                  <polyline
+                    points={seg.map((pt) => `${pt.cx},${pt.cy}`).join(" ")}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={12}
+                    style={{ cursor: "pointer" }}
+                  />
+                  <polyline
+                    points={seg.map((pt) => `${pt.cx},${pt.cy}`).join(" ")}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={isHovered ? 4 : 2}
+                    opacity={isDimmed ? 0.25 : 1}
+                  />
+                </g>
               ))}
             </g>
           );
         })}
       </svg>
       <ul className="legend-row" style={{ listStyle: "none", padding: 0, margin: 0, marginTop: 5 }}>
-        {tracked.map((t, i) => (
-          <li key={t.id}>
-            <span
-              className="legend-dot"
-              aria-hidden="true"
-              style={{ background: colorForIndex(i, tracked.length) }}
-            />
-            {t.name}
-          </li>
-        ))}
+        {tracked.map((t, i) => {
+          const isHovered = hoveredId === t.id;
+          const isDimmed = hoveredId !== null && !isHovered;
+          return (
+            <li
+              key={t.id}
+              onMouseEnter={() => setHoveredId(t.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              style={{
+                cursor: "pointer",
+                opacity: isDimmed ? 0.5 : 1,
+                fontWeight: isHovered ? 600 : 400,
+              }}
+            >
+              <span
+                className="legend-dot"
+                aria-hidden="true"
+                style={{ background: colorForIndex(i, tracked.length) }}
+              />
+              {t.name}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

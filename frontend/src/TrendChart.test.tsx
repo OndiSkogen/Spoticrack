@@ -129,6 +129,56 @@ describe("TrendChart", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("highlights the matching line and dims others when hovering a legend entry", async () => {
+    mockFetches(
+      [
+        { id: "t1", name: "Song One" },
+        { id: "t2", name: "Song Two" },
+      ],
+      [
+        { capturedAt: "2026-08-18 06:00:00", items: [{ id: "t1", rank: 2 }, { id: "t2", rank: 1 }] },
+        { capturedAt: "2026-08-19 06:00:00", items: [{ id: "t1", rank: 1 }, { id: "t2", rank: 2 }] },
+      ],
+    );
+
+    const { container } = render(<TrendChart />);
+    await screen.findByText("Song One");
+
+    const hoveredLine = () =>
+      container.querySelectorAll('[data-series-id="t1"] polyline')[1];
+    const otherLine = () =>
+      container.querySelectorAll('[data-series-id="t2"] polyline')[1];
+
+    expect(hoveredLine()).toHaveAttribute("stroke-width", "2");
+
+    fireEvent.mouseEnter(screen.getByText("Song One").closest("li")!);
+
+    expect(hoveredLine()).toHaveAttribute("stroke-width", "4");
+    expect(otherLine()).toHaveAttribute("opacity", "0.25");
+
+    fireEvent.mouseLeave(screen.getByText("Song One").closest("li")!);
+
+    expect(hoveredLine()).toHaveAttribute("stroke-width", "2");
+    expect(otherLine()).toHaveAttribute("opacity", "1");
+  });
+
+  it("highlights the matching legend entry when hovering a line", async () => {
+    mockFetches(
+      [{ id: "t1", name: "Song One" }],
+      [
+        { capturedAt: "2026-08-18 06:00:00", items: [{ id: "t1", rank: 2 }] },
+        { capturedAt: "2026-08-19 06:00:00", items: [{ id: "t1", rank: 1 }] },
+      ],
+    );
+
+    const { container } = render(<TrendChart />);
+    await screen.findByText("Song One");
+
+    fireEvent.mouseEnter(container.querySelector('[data-series-id="t1"]')!);
+
+    expect(screen.getByText("Song One").closest("li")).toHaveStyle({ fontWeight: "600" });
+  });
+
   it("renders nothing when not signed in", async () => {
     vi.stubGlobal(
       "fetch",
